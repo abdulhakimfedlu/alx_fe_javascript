@@ -9,7 +9,7 @@ async function fetchQuotesFromServer() {
     const serverQuotes = await response.json();
     return serverQuotes;
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching from server:', error);
     return [];
   }
 }
@@ -24,7 +24,7 @@ async function postQuotesToServer(quotes) {
     });
     if (!response.ok) throw new Error('Failed to post quotes to the server.');
   } catch (error) {
-    console.error(error);
+    console.error('Error posting to server:', error);
   }
 }
 
@@ -32,9 +32,8 @@ async function postQuotesToServer(quotes) {
 async function syncQuotes() {
   const serverQuotes = await fetchQuotesFromServer();
   if (serverQuotes.length > 0) {
-    // Conflict resolution: Server data takes precedence
     if (JSON.stringify(serverQuotes) !== JSON.stringify(localQuotes)) {
-      showConflictModal();
+      showConflictModal(); // Notify user of conflict
     }
   }
 }
@@ -45,18 +44,15 @@ function showConflictModal() {
 }
 
 // Function to resolve conflict based on user choice
-function resolveConflict(choice) {
+async function resolveConflict(choice) {
   if (choice === 'server') {
-    // Replace local quotes with server quotes
-    fetchQuotesFromServer().then(serverQuotes => {
-      localQuotes = serverQuotes;
-      saveQuotes();
-      populateCategories();
-      displayRandomQuote();
-      alert('Local data updated with server data.');
-    });
+    const serverQuotes = await fetchQuotesFromServer();
+    localQuotes = serverQuotes;
+    saveQuotes(); // Update local storage
+    populateCategories(); // Update categories in dropdown
+    displayRandomQuote(); // Refresh displayed quote
+    alert('Local data updated with server data.');
   } else {
-    // Keep local quotes and possibly notify the server
     alert('Local data kept. Consider syncing manually later.');
   }
   document.getElementById('conflictModal').style.display = 'none';
