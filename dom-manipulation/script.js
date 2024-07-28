@@ -1,53 +1,48 @@
-// Retrieve quotes from local storage or initialize with default quotes
-const quotes = JSON.parse(localStorage.getItem('quotes')) || [
-  { text: "The best way to predict the future is to invent it.", category: "Innovation" },
-  { text: "Life is what happens when you're busy making other plans.", category: "Life" },
-  { text: "The only limit to our realization of tomorrow is our doubts of today.", category: "Motivation" }
-];
+const API_URL = 'https://jsonplaceholder.typicode.com/posts'; // Mock URL for demo purposes
+let localQuotes = JSON.parse(localStorage.getItem('quotes')) || [];
 
-// Function to display a random quote
-function displayRandomQuote() {
-  const selectedCategory = localStorage.getItem('selectedCategory') || 'all';
-  const filteredQuotes = filterQuotesByCategory(selectedCategory);
-  if (filteredQuotes.length === 0) {
-    document.getElementById('quoteDisplay').textContent = "No quotes available.";
-    return;
+// Function to fetch quotes from the server
+async function fetchQuotesFromServer() {
+  try {
+    const response = await fetch(API_URL);
+    if (!response.ok) throw new Error('Failed to fetch quotes from the server.');
+    const serverQuotes = await response.json();
+    return serverQuotes;
+  } catch (error) {
+    console.error(error);
+    return [];
   }
-  const randomIndex = Math.floor(Math.random() * filteredQuotes.length);
-  const quote = filteredQuotes[randomIndex];
-  document.getElementById('quoteDisplay').textContent = `"${quote.text}" - ${quote.category}`;
-  sessionStorage.setItem('lastQuote', JSON.stringify(quote));
 }
 
-// Function to filter quotes by category
-function filterQuotesByCategory(category) {
-  if (category === 'all') {
-    return quotes;
+// Function to post quotes to the server
+async function postQuotesToServer(quotes) {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(quotes),
+    });
+    if (!response.ok) throw new Error('Failed to post quotes to the server.');
+  } catch (error) {
+    console.error(error);
   }
-  return quotes.filter(quote => quote.category === category);
 }
 
-// Function to populate categories in the dropdown
-function populateCategories() {
-  const categoryFilter = document.getElementById('categoryFilter');
-  const categories = new Set(quotes.map(quote => quote.category));
-  categories.forEach(category => {
-    const option = document.createElement('option');
-    option.value = category;
-    option.textContent = category;
-    categoryFilter.appendChild(option);
-  });
+// Function to synchronize local quotes with the server
+async function syncWithServer() {
+  const serverQuotes = await fetchQuotesFromServer();
+  if (serverQuotes.length > 0) {
+    // Conflict resolution: Server data takes precedence
+    localQuotes = serverQuotes;
+    saveQuotes(); // Save server data to local storage
+    populateCategories(); // Update categories in dropdown
+    displayRandomQuote(); // Display a random quote based on updated data
+    alert('Data has been synchronized with the server.');
+  }
 }
 
-// Function to handle category filtering
-function filterQuotes() {
-  const selectedCategory = document.getElementById('categoryFilter').value;
-  localStorage.setItem('selectedCategory', selectedCategory);
-  displayRandomQuote();
-}
-
-// Function to add a new quote
-function addQuote() {
+// Function to handle adding new quotes
+async function addQuote() {
   const quoteText = document.getElementById('newQuoteText').value.trim();
   const quoteCategory = document.getElementById('newQuoteCategory').value.trim();
 
@@ -56,53 +51,27 @@ function addQuote() {
     return;
   }
 
-  quotes.push({ text: quoteText, category: quoteCategory });
+  const newQuote = { text: quoteText, category: quoteCategory };
+  localQuotes.push(newQuote);
   document.getElementById('newQuoteText').value = '';
   document.getElementById('newQuoteCategory').value = '';
 
   saveQuotes(); // Save to local storage
+  await postQuotesToServer([newQuote]); // Post new quote to server
   populateCategories(); // Update categories in dropdown
   filterQuotes(); // Apply the current filter
 }
 
 // Function to save quotes to local storage
 function saveQuotes() {
-  localStorage.setItem('quotes', JSON.stringify(quotes));
+  localStorage.setItem('quotes', JSON.stringify(localQuotes));
 }
 
-// Function to export quotes as JSON
-function exportToJson() {
-  const blob = new Blob([JSON.stringify(quotes, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'quotes.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-// Function to import quotes from a JSON file
-function importFromJsonFile(event) {
-  const fileReader = new FileReader();
-  fileReader.onload = function(event) {
-    try {
-      const importedQuotes = JSON.parse(event.target.result);
-      if (Array.isArray(importedQuotes)) {
-        quotes.length = 0; // Clear existing quotes
-        quotes.push(...importedQuotes);
-        saveQuotes(); // Update local storage
-        populateCategories(); // Update category dropdown
-        filterQuotes(); // Apply the current filter
-        alert('Quotes imported successfully!');
-      } else {
-        alert('Invalid JSON format.');
-      }
-    } catch (e) {
-      alert('Failed to parse JSON.');
-    }
-  };
-  fileReader.readAsText(event.target.files[0]);
+// Function to handle category filtering
+function filterQuotes() {
+  const selectedCategory = document.getElementById('categoryFilter').value;
+  localStorage.setItem('selectedCategory', selectedCategory);
+  displayRandomQuote();
 }
 
 // Event listeners
@@ -114,3 +83,6 @@ document.getElementById('importFile').addEventListener('change', importFromJsonF
 // Populate categories and apply last selected filter on page load
 populateCategories();
 filterQuotes();
+
+// Periodic sync with server every 30 minutes
+setInterval(syncWithServer, 30 * 60 * 1000);
