@@ -17,6 +17,9 @@
     #addQuoteForm {
       margin-top: 20px;
     }
+    #importFile {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -28,6 +31,12 @@
     <input id="newQuoteText" type="text" placeholder="Enter a new quote" />
     <input id="newQuoteCategory" type="text" placeholder="Enter quote category" />
     <button id="addQuoteButton">Add Quote</button>
+  </div>
+  
+  <div>
+    <button id="exportButton">Export Quotes</button>
+    <input type="file" id="importFile" accept=".json" />
+    <button onclick="document.getElementById('importFile').click()">Import Quotes</button>
   </div>
   
   <script src="script.js"></script>
